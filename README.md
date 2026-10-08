@@ -48,9 +48,9 @@ Les références de projets rendent l'isolation vérifiable par le compilateur ;
 
 | Exigence | Réponse |
 |---|---|
-| Changer de fournisseur musical rapidement | `Music:Providers` dans `appsettings.json` : ordre et présence des fournisseurs sans toucher au code. Nouveau fournisseur = un adapter + une ligne de DI. |
-| Nouveaux canaux de notification | Un adapter `INotificationChannel` + une ligne de DI ; ordre de repli dans `Notifications:FallbackOrder`. |
-| Aucun silence | Repli musical jusqu'au catalogue local (infaillible), repli de canal, profil indisponible → mode dégradé, 503 explicite si rien n'a pu partir. |
+| Changer de fournisseur musical rapidement | `Music:Providers` dans `appsettings.json` : ordre et présence des fournisseurs sans toucher au code. Nouveau fournisseur = un adapter (sous-classe de `HttpMusicProviderBase<T>`), une valeur `MusicProviderKind`, une propriété `RemoteProviderOptions` + son bloc `appsettings`, une ligne de DI ; l'ordre se règle ensuite dans `Music:Providers`. |
+| Nouveaux canaux de notification | Une valeur `ChannelType` (vocabulaire métier : le canal préféré de l'utilisateur), un champ de `UserContact` si une nouvelle coordonnée est nécessaire, un adapter `INotificationChannel`, une ligne de DI ; optionnellement sa place dans `Notifications:FallbackOrder`. `UserContact.PushToken` est la coordonnée de contact de l'utilisateur, comme l'e-mail ou le téléphone : aucun format propre à un fournisseur n'y est porté. |
+| Aucun silence | Repli musical jusqu'au catalogue local (infaillible), repli de canal, service de profils indisponible → dernier profil connu (mis en cache à chaque consultation réussie) ; si le profil n'a jamais été vu, le réveil choisit tout de même un morceau dans le catalogue local mais aucun contact n'est connu : l'API répond alors 503 explicitement pour que l'ordonnanceur réessaie, jamais un 200 silencieux. |
 | Quotas des API | Cache (24 h) devant un limiteur par fournisseur (iTunes 20/min, MusicBrainz 1/s) ; quota atteint → fournisseur suivant, sans attendre. |
 | Aucun composant non vérifié | Tableau ci-dessous, `scripts/audit-dependencies.sh`, `NuGetAuditMode=all` + `TreatWarningsAsErrors` : une vulnérabilité connue casse le build. |
 
@@ -61,7 +61,7 @@ Les références de projets rendent l'isolation vérifiable par le compilateur ;
 | Adapter | `ITunesMusicProvider`, `MusicBrainzMusicProvider`, `EmailChannel`, `SmsChannel`, `PushChannel` | Traduire des contrats externes hétérogènes (`trackViewUrl`, `artist-credit`, `Send(phone, text) : bool`, `PushAsync(payload)`) vers le modèle métier |
 | Strategy | `IMusicProvider`, `INotificationChannel` sélectionnés par configuration | Interchangeabilité à chaud via la config |
 | Composite | `FallbackTrackResolver`, `FallbackNotifier` | Un ensemble ordonné de fournisseurs se présente au métier comme un seul port |
-| Decorator | `CachingMusicProvider` ∘ `RateLimitedMusicProvider` ∘ adapter | Ajouter cache et quota sans modifier les adapters |
+| Decorator | `CachingMusicProvider` ∘ `RateLimitedMusicProvider` ∘ adapter ; `LastKnownUserProfileProvider` ∘ `InMemoryUserProfileProvider` | Ajouter cache, quota et dernier profil connu sans modifier les adapters |
 | Template Method | `HttpMusicProviderBase<T>` | Envoi, timeout et gestion d'erreurs communs ; chaque API ne fournit que l'URL et le mapping |
 | Singleton (durée de vie DI) | limiteurs de débit, cache, catalogue local, mocks | Un quota n'a de sens que partagé par tout le processus ; pas de `static Instance`, donc testable |
 | Special Case | `LocalMusicProvider` | Renvoie toujours un morceau, y compris pour une météo inconnue |
@@ -72,6 +72,14 @@ Les références de projets rendent l'isolation vérifiable par le compilateur ;
 Aucun service n'est instancié par `new` dans `src/` : la DI et `ActivatorUtilities.CreateInstance` (décorateurs, composites, limiteurs) s'en chargent. Restent instanciés directement les **valeurs** — records du domaine, DTO, options, `Uri` — qui sont des données et non des dépendances. Les tests, qui jouent le rôle de composition root, instancient librement.
 
 ## Dépendances
+
+Plateforme (vérifiée le 2026-10-08 sur le releases-index de dotnet.microsoft.com) ; le SDK est épinglé dans `global.json` (`10.0.401`, `rollForward: latestFeature`) :
+
+| Composant | Installé | Dernière stable | Licence | Support |
+|---|---|---|---|---|
+| .NET SDK | 10.0.401 | 10.0.401 | MIT | LTS (fin de support 2028-11-14) |
+| Microsoft.NETCore.App (runtime) | 10.0.12 | 10.0.12 | MIT | LTS |
+| Microsoft.AspNetCore.App (runtime) | 10.0.12 | 10.0.12 | MIT | LTS |
 
 Toutes les versions sont centralisées dans `Directory.Packages.props`. Tableau généré le 08/10/2026 par `scripts/audit-dependencies.sh` depuis nuget.org :
 

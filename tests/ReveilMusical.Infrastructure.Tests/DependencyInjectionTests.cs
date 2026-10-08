@@ -54,6 +54,16 @@ public sealed class DependencyInjectionTests : IDisposable
         .RespondWith(Response.Create().WithStatusCode(200).WithBodyAsJson(new { results = new[] { new { trackName = title, artistName = artist } } }));
 
     [Fact]
+    public async Task Resolves_the_user_profile_provider_as_the_last_known_decorator_over_the_in_memory_provider()
+    {
+        using var provider = Build(ValidSettings());
+
+        var profile = await provider.GetRequiredService<IUserProfileProvider>().GetAsync("42", Ct);
+
+        profile.ShouldNotBeNull().UserId.ShouldBe("42");
+    }
+
+    [Fact]
     public async Task Resolves_with_the_configured_provider_order_and_an_identifiable_user_agent()
     {
         GivenMusicBrainz("Imagine", "John Lennon");

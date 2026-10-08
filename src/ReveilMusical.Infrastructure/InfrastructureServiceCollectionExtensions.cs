@@ -31,7 +31,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<MusicOptions>, MusicOptionsValidator>();
         services.AddSingleton<IValidateOptions<NotificationOptions>, NotificationOptionsValidator>();
 
-        services.AddSingleton<IUserProfileProvider, InMemoryUserProfileProvider>();
+        services.AddMemoryCache();
+        services.AddSingleton<InMemoryUserProfileProvider>();
+        services.AddSingleton<IUserProfileProvider>(provider => ActivatorUtilities.CreateInstance<LastKnownUserProfileProvider>(
+            provider,
+            provider.GetRequiredService<InMemoryUserProfileProvider>()));
         services.AddMusic();
         services.AddNotifications();
         return services;
