@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/ReveilMusical.Application/ReveilMusical.Application.csproj" />
     <Project Path="src/ReveilMusical.Domain/ReveilMusical.Domain.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ReveilMusical.Application.Tests/ReveilMusical.Application.Tests.csproj" />
     <Project Path="tests/ReveilMusical.Domain.Tests/ReveilMusical.Domain.Tests.csproj" />
   </Folder>
 </Solution>
