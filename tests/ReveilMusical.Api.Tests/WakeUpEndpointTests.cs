@@ -63,13 +63,15 @@ public sealed class WakeUpEndpointTests : IDisposable
     [InlineData("""{ "day": "Monday", "weather": "PLUIE" }""")]
     [InlineData("""{ "userId": null, "day": "Monday", "weather": "PLUIE" }""")]
     [InlineData("""{ "userId": "   ", "day": "Monday", "weather": "PLUIE" }""")]
+    [InlineData("""{ "userId": "42", "weather": "PLUIE" }""")]
+    [InlineData("""{ "userId": "42", "day": "Monday" }""")]
     [InlineData("not json")]
     public async Task Invalid_payloads_return_400(string json)
     {
         using var response = await PostAsync(json);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");
         await _factory.Tracks.DidNotReceiveWithAnyArgs().ResolveAsync(default!, Ct);
     }
 
@@ -79,7 +81,7 @@ public sealed class WakeUpEndpointTests : IDisposable
         using var response = await PostAsync("""{ "userId": "unknown", "day": "Monday", "weather": "SOLEIL" }""");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");
     }
 
     [Fact]
@@ -105,7 +107,7 @@ public sealed class WakeUpEndpointTests : IDisposable
         using var response = await PostAsync("""{ "userId": "42", "day": "Monday", "weather": "NUAGEUX" }""");
 
         response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
-        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");
         (await response.Content.ReadAsStringAsync(Ct)).ShouldNotContain("secret internal detail");
     }
 }
