@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
@@ -32,4 +33,68 @@ foreach (var (id, installed) in packages)
     var license = nuspec.Descendants().FirstOrDefault(element => element.Name.LocalName == "license")?.Value ?? "voir licenseUrl";
 
     Console.WriteLine($"| {id} | {installed} | {latest} | {published} | {license} | {(installed == latest ? "à jour" : "en retard")} |");
+}
+
+Console.WriteLine();
+Console.WriteLine("## Licences des paquets transitifs");
+
+string[] propertyNames = ["topLevelPackages", "transitivePackages"];
+string[] permissive = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "MS-PL", "ISC", "0BSD", "Unlicense"];
+
+using var listing = Process.Start(new ProcessStartInfo("dotnet", "list package --include-transitive --format json")
+{
+    RedirectStandardOutput = true,
+})!;
+var listingJson = await listing.StandardOutput.ReadToEndAsync();
+await listing.WaitForExitAsync();
+
+using var resolved = JsonDocument.Parse(listingJson);
+var all = resolved.RootElement.GetProperty("projects").EnumerateArray()
+    .Where(project => project.TryGetProperty("frameworks", out _))
+    .SelectMany(project => project.GetProperty("frameworks").EnumerateArray())
+    .SelectMany(framework => propertyNames
+        .Where(name => framework.TryGetProperty(name, out _))
+        .SelectMany(name => framework.GetProperty(name).EnumerateArray()))
+    .Select(package => (Id: package.GetProperty("id").GetString()!, Version: package.GetProperty("resolvedVersion").GetString()!))
+    .Distinct()
+    .OrderBy(package => package.Id, StringComparer.OrdinalIgnoreCase)
+    .ToList();
+
+var licenses = new List<(string Id, string Version, string License)>();
+foreach (var (id, version) in all)
+{
+#pragma warning disable CA1308 // NuGet's v3 API only accepts lower-case package ids.
+    var key = id.ToLowerInvariant();
+#pragma warning restore CA1308
+    var license = "inconnue";
+    try
+    {
+        var nuspec = XDocument.Parse(await http.GetStringAsync(new Uri($"https://api.nuget.org/v3-flatcontainer/{key}/{version.ToLowerInvariant()}/{key}.nuspec")));
+        var element = nuspec.Descendants().FirstOrDefault(e => e.Name.LocalName == "license");
+        license = element is null ? "licenseUrl seule" : element.Value;
+    }
+    catch (HttpRequestException)
+    {
+    }
+
+    licenses.Add((id, version, license));
+}
+
+static bool IsPermissive(string license, string[] allowed) =>
+    license.Split([' ', '(', ')'], StringSplitOptions.RemoveEmptyEntries)
+        .All(token => token is "OR" or "AND" || allowed.Contains(token, StringComparer.Ordinal));
+
+Console.WriteLine($"{licenses.Count} paquets distincts (directs et transitifs, tous projets).");
+foreach (var group in licenses.GroupBy(entry => entry.License).OrderByDescending(group => group.Count()))
+{
+    Console.WriteLine($"- {group.Key} : {group.Count()}");
+}
+
+var flagged = licenses.Where(entry => !IsPermissive(entry.License, permissive)).ToList();
+Console.WriteLine(flagged.Count == 0
+    ? "Aucun paquet hors liste permissive (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, MS-PL, ISC, 0BSD, Unlicense)."
+    : "Hors liste permissive ou inconnus :");
+foreach (var (id, version, license) in flagged)
+{
+    Console.WriteLine($"- {id} {version} : {license}");
 }

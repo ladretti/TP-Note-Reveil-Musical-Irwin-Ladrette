@@ -23,7 +23,7 @@ Utilisateurs de démonstration : `42` (grille jour×météo, push), `7` (morceau
 
 ```bash
 dotnet test
-scripts/coverage.sh        # couverture de lignes : 99,4 %
+scripts/coverage.sh        # 99,4 % des lignes (hors Program.cs)
 scripts/audit-dependencies.sh
 ```
 
@@ -93,22 +93,35 @@ Toutes les versions sont centralisées dans `Directory.Packages.props`. Tableau 
 | WireMock.Net | 2.19.0 | 2.19.0 | 2026-10-07 | Apache-2.0 | à jour |
 | xunit.v3 | 4.0.1 | 4.0.1 | 2026-09-12 | Apache-2.0 | à jour |
 
-Les paquets `Microsoft.Extensions.*` et ASP.NET Core (shared framework `Microsoft.AspNetCore.App`) sont sous licence MIT, maintenus par Microsoft et alignés sur .NET 10 (LTS). `System.Threading.RateLimiting` (Microsoft, MIT) est une dépendance d'exécution : ses types ne font pas partie du framework de base `Microsoft.NETCore.App`. Seuls xUnit, NSubstitute, Shouldly, coverlet, WireMock.Net et ReportGenerator sont des composants tiers, tous **uniquement de test** et sous licence permissive (Apache-2.0, BSD-3-Clause, MIT) : aucune obligation copyleft ne s'applique au produit livré. WireMock.Net tire des dépendances transitives ; elles sont couvertes par `--include-transitive` et par l'audit NuGet du build.
+Les paquets `Microsoft.Extensions.*` et `System.Threading.RateLimiting` (dépendance d'exécution : ses types ne font pas partie du framework de base `Microsoft.NETCore.App`) sont sous licence MIT, maintenus par Microsoft et alignés sur .NET 10 (LTS). ASP.NET Core vient du shared framework `Microsoft.AspNetCore.App` ; `Microsoft.AspNetCore.Mvc.Testing` est en revanche un paquet NuGet **de test uniquement**. xUnit, NSubstitute, Shouldly, coverlet, WireMock.Net et ReportGenerator sont des composants tiers, tous de test ou d'outillage.
+
+Fraîcheur : Shouldly 4.3.0 date de 2025-01 (stable mais cadence de publication faible, acceptable pour une bibliothèque d'assertions de test) ; WireMock.Net est publié très fréquemment (dernière version 2026-10-07).
+
+**Licences transitives.** La seconde section de `scripts/audit-dependencies.sh` parcourt les 187 paquets distincts (directs et transitifs, tous projets) résolus par `dotnet list package --include-transitive` et lit la licence de chaque `.nuspec` : MIT 151, Apache-2.0 22, BSD-3-Clause 2, BSD-2-Clause 1, MS-PL 1, et 10 sans expression SPDX reconnue :
+
+| Paquet | Déclaré | Licence réelle (vérifiée manuellement) | Présent dans |
+|---|---|---|---|
+| Fare 2.2.1, SimMetrics.Net 1.0.5 | licenseUrl seule | MIT (fichier LICENSE du dépôt) | tests (via WireMock.Net) |
+| JmesPath.Net.Parser 1.1.0 | licenseUrl seule | Apache-2.0 | tests (via WireMock.Net) |
+| Microsoft.AspNetCore.Http, .Http.Abstractions, .Http.Features, .WebUtilities, Microsoft.Net.Http.Headers (2.3.x) | licenseUrl seule | Apache-2.0 (lu pour Http 2.3.9 ; les autres pointent le même dépôt AspNetCore) | tests (via WireMock.Net) |
+| Json.More.Net 3.0.1, JsonPath.Net 3.0.2 | `OSMFEULA.txt` | MIT + Open Source Maintenance Fee : redevance due seulement pour un usage commercial générateur d'au moins 10 000 USD de revenu annuel | tests (via WireMock.Net) |
+
+Aucun paquet de ces 10 n'est référencé par les projets de `src/` (vérifié avec `dotnet list package --include-transitive` sur chacun) : ils ne sont pas livrés avec le produit. Aucune licence copyleft n'apparaît dans l'inventaire ; la licence réelle des 8 paquets « licenseUrl seule » a été lue à la main, le script ne peut pas la lire. Le contrat OSMF des deux paquets `json-everything` est à connaître pour un usage commercial de l'environnement de test, mais ne concerne pas le produit livré.
 
 ### Composants écartés
 
 | Composant | Raison |
 |---|---|
 | FluentAssertions ≥ 8 | Licence commerciale payante depuis 2025 (la v7 Apache-2.0 serait une version figée) → Shouldly |
-| Moq | Incident SponsorLink (2023) : collecte de données à la compilation → NSubstitute |
+| Moq | Incident SponsorLink (2023, retiré ensuite) : collecte de données à la compilation ; la confiance est entamée → NSubstitute |
 | MediatR, AutoMapper | Passés sous licence commerciale en 2025 ; un seul cas d'usage et un mapping trivial ne les justifient pas |
 | Polly / Microsoft.Extensions.Http.Resilience | Timeout `HttpClient` + `System.Threading.RateLimiting` suffisent ; les décorateurs restent lisibles |
-| Scrutor | `ActivatorUtilities` couvre la décoration sans dépendance |
-| NetArchTest | Peu maintenu ; un test par réflexion de dix lignes suffit |
+| Scrutor | Superflu : `ActivatorUtilities` couvre la décoration |
+| NetArchTest | Dépendance superflue pour un test par réflexion de dix lignes |
 
 ## APIs externes
 
 | API | Conditions respectées |
 |---|---|
-| iTunes Search API | Gratuite, sans clé, ≈ 20 requêtes/min : limiteur 20/min + cache 24 h. Le lien `trackViewUrl` (renvoi vers Apple, exigé par les conditions d'Apple) est conservé sous forme neutre `ListenUrl`. |
+| iTunes Search API | Gratuite, sans clé, ≈ 20 requêtes/min : limiteur 20/min + cache 24 h. Le lien de retour vers Apple (`trackViewUrl`) est conservé sous forme neutre `ListenUrl` (attendu par les conditions d'utilisation). |
 | MusicBrainz | `User-Agent` identifiable obligatoire (`Music:MusicBrainz:UserAgent`, validé au démarrage), 1 requête/s en moyenne : limiteur 1/s. Les données utilisées (titre, artiste) font partie des données de base, publiées en CC0. |
