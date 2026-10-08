@@ -7,3 +7,6 @@ internal sealed partial class MusicOptionsValidator : IValidateOptions<MusicOpti
 
 [OptionsValidator]
 internal sealed partial class NotificationOptionsValidator : IValidateOptions<NotificationOptions>;
+
+[OptionsValidator]
+internal sealed partial class ProfileOptionsValidator : IValidateOptions<ProfileOptions>;

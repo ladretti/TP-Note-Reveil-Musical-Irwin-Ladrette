@@ -4,6 +4,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using ReveilMusical.Domain;
 using ReveilMusical.Domain.Ports;
+using ReveilMusical.Infrastructure.Options;
 using ReveilMusical.Infrastructure.Users;
 
 using ReveilMusical.Infrastructure.Notifications;
@@ -21,14 +22,18 @@ public sealed class LastKnownUserProfileProviderTests : IDisposable
     private readonly LastKnownUserProfileProvider _sut;
 
     public LastKnownUserProfileProviderTests() =>
-        _sut = new LastKnownUserProfileProvider(_inner, _cache, NullLogger<LastKnownUserProfileProvider>.Instance);
+        _sut = new LastKnownUserProfileProvider(
+            _inner,
+            _cache,
+            Microsoft.Extensions.Options.Options.Create(new ProfileOptions { Timeout = TimeSpan.FromMilliseconds(200) }),
+            NullLogger<LastKnownUserProfileProvider>.Instance);
 
     public void Dispose() => _cache.Dispose();
 
     [Fact]
     public async Task Returns_and_caches_the_profile_on_success()
     {
-        _inner.GetAsync("42", Ct).Returns(Profile);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Profile);
 
         (await _sut.GetAsync("42", Ct)).ShouldBe(Profile);
 
@@ -39,9 +44,9 @@ public sealed class LastKnownUserProfileProviderTests : IDisposable
     [Fact]
     public async Task Serves_the_last_known_profile_when_the_inner_provider_throws()
     {
-        _inner.GetAsync("42", Ct).Returns(Profile);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Profile);
         await _sut.GetAsync("42", Ct);
-        _inner.GetAsync("42", Ct).ThrowsAsync(new HttpRequestException("down"));
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("down"));
 
         (await _sut.GetAsync("42", Ct)).ShouldBe(Profile with { IsStale = true });
     }
@@ -49,17 +54,41 @@ public sealed class LastKnownUserProfileProviderTests : IDisposable
     [Fact]
     public async Task Serves_the_last_known_profile_when_the_inner_provider_times_out()
     {
-        _inner.GetAsync("42", Ct).Returns(Profile);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Profile);
         await _sut.GetAsync("42", Ct);
-        _inner.GetAsync("42", Ct).ThrowsAsync(new TaskCanceledException("timeout"));
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).ThrowsAsync(new TaskCanceledException("timeout"));
 
         (await _sut.GetAsync("42", Ct)).ShouldBe(Profile with { IsStale = true });
     }
 
     [Fact]
+    public async Task Serves_the_last_known_profile_when_the_inner_provider_hangs()
+    {
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Profile);
+        await _sut.GetAsync("42", Ct);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(HangAsync);
+
+        (await _sut.GetAsync("42", Ct)).ShouldBe(Profile with { IsStale = true });
+    }
+
+    [Fact]
+    public async Task Gives_up_on_a_hanging_provider_when_nothing_is_cached()
+    {
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(HangAsync);
+
+        await Should.ThrowAsync<OperationCanceledException>(() => _sut.GetAsync("42", Ct));
+    }
+
+    private static async Task<UserProfile?> HangAsync(NSubstitute.Core.CallInfo call)
+    {
+        await Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+        return null;
+    }
+
+    [Fact]
     public async Task Rethrows_when_nothing_is_cached()
     {
-        _inner.GetAsync("42", Ct).ThrowsAsync(new HttpRequestException("down"));
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("down"));
 
         await Should.ThrowAsync<HttpRequestException>(() => _sut.GetAsync("42", Ct));
     }
@@ -67,9 +96,9 @@ public sealed class LastKnownUserProfileProviderTests : IDisposable
     [Fact]
     public async Task Evicts_and_returns_null_for_an_unknown_user()
     {
-        _inner.GetAsync("42", Ct).Returns(Profile);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Profile);
         await _sut.GetAsync("42", Ct);
-        _inner.GetAsync("42", Ct).Returns((UserProfile?)null);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns((UserProfile?)null);
 
         (await _sut.GetAsync("42", Ct)).ShouldBeNull();
 
@@ -79,11 +108,11 @@ public sealed class LastKnownUserProfileProviderTests : IDisposable
     [Fact]
     public async Task Propagates_caller_cancellation_even_with_a_cached_profile()
     {
-        _inner.GetAsync("42", Ct).Returns(Profile);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Profile);
         await _sut.GetAsync("42", Ct);
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
-        _inner.GetAsync("42", cts.Token).ThrowsAsync(new OperationCanceledException(cts.Token));
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).ThrowsAsync(new OperationCanceledException(cts.Token));
 
         await Should.ThrowAsync<OperationCanceledException>(() => _sut.GetAsync("42", cts.Token));
     }

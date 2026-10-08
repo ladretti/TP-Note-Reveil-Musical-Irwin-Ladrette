@@ -1,13 +1,16 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ReveilMusical.Domain;
 using ReveilMusical.Domain.Ports;
+using ReveilMusical.Infrastructure.Options;
 
 namespace ReveilMusical.Infrastructure.Users;
 
 internal sealed class LastKnownUserProfileProvider(
     IUserProfileProvider inner,
     IMemoryCache cache,
+    IOptions<ProfileOptions> options,
     ILogger<LastKnownUserProfileProvider> logger) : IUserProfileProvider
 {
     // Bounds how outdated a contact served during an outage can be (changed phone, erased account).
@@ -18,9 +21,11 @@ internal sealed class LastKnownUserProfileProvider(
         var key = $"profile:{userId}";
 
         UserProfile? profile;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(options.Value.Timeout);
         try
         {
-            profile = await inner.GetAsync(userId, cancellationToken);
+            profile = await inner.GetAsync(userId, timeout.Token);
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested && cache.TryGetValue(key, out UserProfile? lastKnown) && lastKnown is not null)
         {

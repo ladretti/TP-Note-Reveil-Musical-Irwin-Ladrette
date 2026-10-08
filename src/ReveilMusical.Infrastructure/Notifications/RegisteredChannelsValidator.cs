@@ -6,13 +6,20 @@ namespace ReveilMusical.Infrastructure.Notifications;
 
 internal sealed class RegisteredChannelsValidator(IEnumerable<INotificationChannel> channels) : IValidateOptions<NotificationOptions>
 {
-    private readonly HashSet<ChannelType> _registered = [.. channels.Select(channel => channel.Type)];
+    private readonly ChannelType[] _declared = [.. channels.Select(channel => channel.Type)];
 
     public ValidateOptionsResult Validate(string? name, NotificationOptions options)
     {
-        var unknown = options.FallbackOrder.Where(channel => string.IsNullOrWhiteSpace(channel) || !_registered.Contains(new ChannelType(channel))).ToList();
+        var duplicates = _declared.GroupBy(type => type).Where(group => group.Count() > 1).Select(group => group.Key).ToList();
+        if (duplicates.Count > 0)
+        {
+            return ValidateOptionsResult.Fail($"Several notification channels declare the same name: {string.Join(", ", duplicates)}.");
+        }
+
+        var registered = _declared.ToHashSet();
+        var unknown = options.FallbackOrder.Where(channel => string.IsNullOrWhiteSpace(channel) || !registered.Contains(new ChannelType(channel))).ToList();
         return unknown.Count == 0
             ? ValidateOptionsResult.Success
-            : ValidateOptionsResult.Fail($"Notifications:FallbackOrder names unregistered channels: {string.Join(", ", unknown)}. Registered: {string.Join(", ", _registered)}.");
+            : ValidateOptionsResult.Fail($"Notifications:FallbackOrder names unregistered channels: {string.Join(", ", unknown)}. Registered: {string.Join(", ", registered)}.");
     }
 }

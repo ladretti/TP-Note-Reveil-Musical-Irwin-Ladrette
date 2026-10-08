@@ -40,9 +40,11 @@ internal sealed class FallbackNotifier(
             return false;
         }
 
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(options.Value.ChannelTimeout);
         try
         {
-            if (await channel.TrySendAsync(message, cancellationToken))
+            if (await channel.TrySendAsync(message, timeout.Token))
             {
                 return true;
             }

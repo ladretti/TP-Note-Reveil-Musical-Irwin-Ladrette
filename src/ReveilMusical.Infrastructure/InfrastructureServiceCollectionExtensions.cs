@@ -27,7 +27,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddOptions<NotificationOptions>()
             .Bind(notificationSection)
             .ValidateOnStart();
+        services.AddOptions<ProfileOptions>().Bind(configuration.GetSection(ProfileOptions.SectionName)).ValidateOnStart();
         services.AddSingleton<IValidateOptions<MusicOptions>, MusicOptionsValidator>();
+        services.AddSingleton<IValidateOptions<ProfileOptions>, ProfileOptionsValidator>();
         services.AddSingleton<IValidateOptions<NotificationOptions>, NotificationOptionsValidator>();
         services.AddSingleton<IValidateOptions<NotificationOptions>, RegisteredChannelsValidator>();
 

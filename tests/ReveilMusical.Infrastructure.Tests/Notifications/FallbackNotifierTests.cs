@@ -25,7 +25,7 @@ public sealed class FallbackNotifierTests
 
     private static FallbackNotifier CreateSut(params INotificationChannel[] channels) => new(
         channels,
-        Microsoft.Extensions.Options.Options.Create(new NotificationOptions { FallbackOrder = ["Push", "Sms", "Email"] }),
+        Microsoft.Extensions.Options.Options.Create(new NotificationOptions { FallbackOrder = ["Push", "Sms", "Email"], ChannelTimeout = TimeSpan.FromMilliseconds(200) }),
         NullLogger<FallbackNotifier>.Instance);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -86,6 +86,20 @@ public sealed class FallbackNotifierTests
 
         result.ShouldBe(new NotificationResult(new ChannelType("WhatsApp"), UsedFallback: false));
         await _push.DidNotReceiveWithAnyArgs().TrySendAsync(default!, Ct);
+    }
+
+    [Fact]
+    public async Task Falls_back_when_a_channel_hangs()
+    {
+        _push.TrySendAsync(Message, Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            await Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+            return true;
+        });
+
+        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, Channels.Push, Ct);
+
+        result.ShouldBe(new NotificationResult(Channels.Sms, UsedFallback: true));
     }
 
     [Fact]

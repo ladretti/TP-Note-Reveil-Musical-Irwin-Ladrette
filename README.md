@@ -50,7 +50,7 @@ Les références de projets rendent l'isolation vérifiable par le compilateur ;
 |---|---|
 | Changer de fournisseur musical rapidement | `Music:Providers` dans `appsettings.json` : ordre et présence des fournisseurs sans toucher au code. Nouveau fournisseur = un adapter (sous-classe de `HttpMusicProviderBase<T>`), une valeur `MusicProviderKind`, une propriété `RemoteProviderOptions` + son bloc `appsettings`, une ligne de DI ; l'ordre se règle ensuite dans `Music:Providers`. |
 | Nouveaux canaux de notification | Un adapter `INotificationChannel` (qui déclare son nom, ex. `"WhatsApp"`), une ligne de DI et sa place dans `Notifications:FallbackOrder` : **aucune modification du Domain**. Le métier ne manipule qu'un `ChannelType` opaque (un nom) et un `UserContact` qui associe à chaque canal une adresse ; c'est l'adapter qui sait quoi faire de son adresse. Un nom de canal inconnu dans la configuration fait échouer le démarrage. |
-| Aucun silence | Repli musical jusqu'au catalogue local (infaillible), repli de canal, service de profils indisponible → dernier profil connu (mis en cache à chaque consultation réussie, conservé 7 jours, propre à chaque instance) et signalé `StaleProfileUsed` ; si le profil n'a jamais été vu, le réveil choisit tout de même un morceau dans le catalogue local mais aucun contact n'est connu : l'API répond alors 503 explicitement pour que l'ordonnanceur réessaie, jamais un 200 silencieux. |
+| Aucun silence | Chaque frontière a un délai maximal (musique `Music:*:Timeout` 3 s, profils `Profiles:Timeout` 2 s, chaque canal `Notifications:ChannelTimeout` 2 s) : une lenteur est traitée comme une panne. Repli musical jusqu'au catalogue local (infaillible), repli de canal, service de profils indisponible → dernier profil connu (mis en cache à chaque consultation réussie, conservé 7 jours, propre à chaque instance) et signalé `StaleProfileUsed` ; si le profil n'a jamais été vu, le réveil choisit tout de même un morceau dans le catalogue local mais aucun contact n'est connu : l'API répond alors 503 explicitement pour que l'ordonnanceur réessaie, jamais un 200 silencieux. |
 | Quotas des API | Cache (24 h) devant un limiteur par fournisseur (iTunes 20/min, MusicBrainz 1/s) ; quota atteint → fournisseur suivant, sans attendre. |
 | Aucun composant non vérifié | Tableau ci-dessous, `scripts/audit-dependencies.sh`, `NuGetAuditMode=all` + `TreatWarningsAsErrors` : une vulnérabilité connue casse le build. |
 
@@ -72,6 +72,8 @@ Les références de projets rendent l'isolation vérifiable par le compilateur ;
 Aucun service n'est instancié par `new` dans `src/` : la DI et `ActivatorUtilities.CreateInstance` (décorateurs, composites, limiteurs) s'en chargent. Restent instanciés directement les **valeurs** — records du domaine, DTO, options, `Uri` — qui sont des données et non des dépendances. Les tests, qui jouent le rôle de composition root, instancient librement.
 
 ## Dépendances
+
+Aucune dépendance système cachée : les noms français des jours sont écrits en dur plutôt que lus via ICU (`CultureInfo("fr-FR")`), et les tests tournent en `InvariantGlobalization` pour le garantir — l'API fonctionne donc aussi sur une image sans libicu (Alpine, chiseled).
 
 Plateforme (vérifiée le 2026-10-08 sur le releases-index de dotnet.microsoft.com) ; `global.json` exige un SDK .NET 10 (`10.0.100` minimum, `rollForward: latestFeature`) :
 
@@ -114,7 +116,7 @@ Fraîcheur : Shouldly 4.3.0 date de 2025-01 (stable mais cadence de publication 
 | Microsoft.AspNetCore.Http, .Http.Abstractions, .Http.Features, .WebUtilities, Microsoft.Net.Http.Headers (2.3.x) | licenseUrl seule | Apache-2.0 (lu pour Http 2.3.9 ; les autres pointent le même dépôt AspNetCore) | tests (via WireMock.Net) |
 | Json.More.Net 3.0.1, JsonPath.Net 3.0.2 | `OSMFEULA.txt` | MIT + Open Source Maintenance Fee : redevance due seulement pour un usage commercial générateur d'au moins 10 000 USD de revenu annuel | tests (via WireMock.Net) |
 
-Aucun paquet de ces 10 n'est référencé par les projets de `src/` (vérifié avec `dotnet list package --include-transitive` sur chacun) : ils ne sont pas livrés avec le produit. Aucune licence copyleft n'apparaît dans l'inventaire ; la licence réelle des 8 paquets « licenseUrl seule » a été lue à la main, le script ne peut pas la lire. Le contrat OSMF des deux paquets `json-everything` est à connaître pour un usage commercial de l'environnement de test, mais ne concerne pas le produit livré.
+Aucun paquet de ces 10 n'est référencé par les projets de `src/` (vérifié avec `dotnet list package --include-transitive` sur chacun) : ils ne sont pas livrés avec le produit. La seule licence à réciprocité est la MS-PL de `xpath2` 1.1.5 (copyleft faible, au niveau du fichier), tirée par WireMock.Net pour les tests uniquement : elle ne s'applique qu'à ses propres sources et ne touche pas le produit livré. Aucune GPL/AGPL n'apparaît ; la licence réelle des 8 paquets « licenseUrl seule » a été lue à la main, le script ne peut pas la lire. Le contrat OSMF des deux paquets `json-everything` est à connaître pour un usage commercial de l'environnement de test, mais ne concerne pas le produit livré.
 
 ### Composants écartés
 
