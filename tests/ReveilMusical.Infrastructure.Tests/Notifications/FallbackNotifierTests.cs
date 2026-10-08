@@ -103,6 +103,22 @@ public sealed class FallbackNotifierTests
     }
 
     [Fact]
+    public async Task Falls_back_when_a_channel_blocks_and_ignores_cancellation()
+    {
+        using var release = new ManualResetEventSlim();
+        _push.TrySendAsync(Message, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            release.Wait(TimeSpan.FromSeconds(10), CancellationToken.None);
+            return Task.FromResult(true);
+        });
+
+        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, Channels.Push, Ct);
+
+        result.ShouldBe(new NotificationResult(Channels.Sms, UsedFallback: true));
+        release.Set();
+    }
+
+    [Fact]
     public async Task Reports_not_delivered_when_every_channel_fails()
     {
         foreach (var channel in new[] { _push, _sms, _email })

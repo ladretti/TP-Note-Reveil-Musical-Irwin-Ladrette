@@ -25,7 +25,7 @@ internal sealed class LastKnownUserProfileProvider(
         timeout.CancelAfter(options.Value.Timeout);
         try
         {
-            profile = await inner.GetAsync(userId, timeout.Token);
+            profile = await Task.Run(() => inner.GetAsync(userId, timeout.Token), timeout.Token).WaitAsync(timeout.Token);
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested && cache.TryGetValue(key, out UserProfile? lastKnown) && lastKnown is not null)
         {

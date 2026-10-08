@@ -72,6 +72,16 @@ public sealed class LastKnownUserProfileProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task Serves_the_last_known_profile_when_the_inner_provider_ignores_cancellation()
+    {
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Profile);
+        await _sut.GetAsync("42", Ct);
+        _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource<UserProfile?>().Task);
+
+        (await _sut.GetAsync("42", Ct)).ShouldBe(Profile with { IsStale = true });
+    }
+
+    [Fact]
     public async Task Gives_up_on_a_hanging_provider_when_nothing_is_cached()
     {
         _inner.GetAsync("42", Arg.Any<CancellationToken>()).Returns(HangAsync);

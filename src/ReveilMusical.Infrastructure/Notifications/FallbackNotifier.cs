@@ -44,7 +44,8 @@ internal sealed class FallbackNotifier(
         timeout.CancelAfter(options.Value.ChannelTimeout);
         try
         {
-            if (await channel.TrySendAsync(message, timeout.Token))
+            // Task.Run + WaitAsync enforce the timeout even on an adapter that blocks or ignores the token.
+            if (await Task.Run(() => channel.TrySendAsync(message, timeout.Token), timeout.Token).WaitAsync(timeout.Token))
             {
                 return true;
             }

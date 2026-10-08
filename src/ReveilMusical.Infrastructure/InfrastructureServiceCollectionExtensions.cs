@@ -111,9 +111,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IEmailClient, FakeEmailClient>();
         services.AddSingleton<ISmsGateway, FakeSmsGateway>();
         services.AddSingleton<IPushService, FakePushService>();
-        services.AddTransient<INotificationChannel, EmailChannel>();
-        services.AddTransient<INotificationChannel, SmsChannel>();
-        services.AddTransient<INotificationChannel, PushChannel>();
+        services.AddSingleton<INotificationChannel, EmailChannel>();
+        services.AddSingleton<INotificationChannel, SmsChannel>();
+        services.AddSingleton<INotificationChannel, PushChannel>();
         services.AddTransient<IWakeUpNotifier, FallbackNotifier>();
     }
 }
