@@ -138,4 +138,14 @@ public sealed class DependencyInjectionTests : IDisposable
 
         Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<IOptions<MusicOptions>>().Value);
     }
+
+    [Fact]
+    public void Unknown_channel_name_fails_options_binding()
+    {
+        var settings = ValidSettings();
+        settings["Notifications:FallbackOrder:1"] = "Emial";
+        using var provider = Build(settings);
+
+        Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<IOptions<NotificationOptions>>().Value);
+    }
 }

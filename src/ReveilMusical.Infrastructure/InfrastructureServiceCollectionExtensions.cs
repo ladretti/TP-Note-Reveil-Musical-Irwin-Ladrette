@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using ReveilMusical.Domain;
 using ReveilMusical.Domain.Ports;
 using ReveilMusical.Infrastructure.Music;
 using ReveilMusical.Infrastructure.Music.ITunes;
@@ -20,9 +21,13 @@ public static class InfrastructureServiceCollectionExtensions
         var musicSection = configuration.GetSection(MusicOptions.SectionName);
         services.AddOptions<MusicOptions>()
             .Bind(musicSection)
-            .Configure(_ => RejectUnknownProviderNames(musicSection))
+            .Configure(_ => RejectUnknownNames<MusicProviderKind>(musicSection.GetSection(nameof(MusicOptions.Providers))))
             .ValidateOnStart();
-        services.AddOptions<NotificationOptions>().Bind(configuration.GetSection(NotificationOptions.SectionName)).ValidateOnStart();
+        var notificationSection = configuration.GetSection(NotificationOptions.SectionName);
+        services.AddOptions<NotificationOptions>()
+            .Bind(notificationSection)
+            .Configure(_ => RejectUnknownNames<ChannelType>(notificationSection.GetSection(nameof(NotificationOptions.FallbackOrder))))
+            .ValidateOnStart();
         services.AddSingleton<IValidateOptions<MusicOptions>, MusicOptionsValidator>();
         services.AddSingleton<IValidateOptions<NotificationOptions>, NotificationOptionsValidator>();
 
@@ -32,14 +37,15 @@ public static class InfrastructureServiceCollectionExtensions
         return services;
     }
 
-    // The binder silently drops list items it cannot convert, which would hide a typo in Music:Providers.
-    private static void RejectUnknownProviderNames(IConfigurationSection musicSection)
+    // The binder silently drops list items it cannot convert, which would hide a typo in a configured list.
+    private static void RejectUnknownNames<TEnum>(IConfigurationSection list)
+        where TEnum : struct, Enum
     {
-        foreach (var name in musicSection.GetSection(nameof(MusicOptions.Providers)).GetChildren().Select(child => child.Value))
+        foreach (var name in list.GetChildren().Select(child => child.Value))
         {
-            if (!Enum.TryParse<MusicProviderKind>(name, out _))
+            if (!Enum.TryParse<TEnum>(name, ignoreCase: true, out var value) || !Enum.IsDefined(value))
             {
-                throw new InvalidOperationException($"Unknown music provider '{name}' in configuration.");
+                throw new InvalidOperationException($"Unknown {typeof(TEnum).Name} '{name}' in configuration section '{list.Path}'.");
             }
         }
     }
