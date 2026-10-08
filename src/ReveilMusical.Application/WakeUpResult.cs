@@ -12,6 +12,7 @@ public enum WakeUpStatus
 public enum DegradationReason
 {
     ProfileUnavailable,
+    StaleProfileUsed,
     MusicFallbackUsed,
     ChannelFallbackUsed,
     NotDelivered,

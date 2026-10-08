@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using ReveilMusical.Domain;
 using ReveilMusical.Domain.Ports;
 using ReveilMusical.Infrastructure.Options;
+using ReveilMusical.Infrastructure.Users;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -58,9 +59,10 @@ public sealed class DependencyInjectionTests : IDisposable
     {
         using var provider = Build(ValidSettings());
 
-        var profile = await provider.GetRequiredService<IUserProfileProvider>().GetAsync("42", Ct);
+        var profiles = provider.GetRequiredService<IUserProfileProvider>();
 
-        profile.ShouldNotBeNull().UserId.ShouldBe("42");
+        profiles.ShouldBeOfType<LastKnownUserProfileProvider>();
+        (await profiles.GetAsync("42", Ct)).ShouldNotBeNull().UserId.ShouldBe("42");
     }
 
     [Fact]

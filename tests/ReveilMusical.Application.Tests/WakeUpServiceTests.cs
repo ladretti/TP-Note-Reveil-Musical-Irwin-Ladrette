@@ -70,6 +70,17 @@ public sealed class WakeUpServiceTests
     }
 
     [Fact]
+    public async Task Flags_a_stale_profile_served_during_an_outage()
+    {
+        _profiles.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Alice with { IsStale = true });
+
+        var result = await _sut.WakeUpAsync(MondayRain, Ct);
+
+        result.Status.ShouldBe(WakeUpStatus.Delivered);
+        result.Reasons.ShouldBe([DegradationReason.StaleProfileUsed]);
+    }
+
+    [Fact]
     public async Task Flags_music_fallback()
     {
         _tracks.ResolveAsync(Arg.Any<TrackQuery>(), Arg.Any<CancellationToken>()).Returns(new ResolvedTrack(Song, IsFallback: true));

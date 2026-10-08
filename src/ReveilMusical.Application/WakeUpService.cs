@@ -22,6 +22,11 @@ public sealed class WakeUpService(
             {
                 return WakeUpResult.UserNotFound;
             }
+
+            if (profile.IsStale)
+            {
+                reasons.Add(DegradationReason.StaleProfileUsed);
+            }
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {

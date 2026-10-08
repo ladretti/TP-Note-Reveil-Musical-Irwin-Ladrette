@@ -41,7 +41,17 @@ public sealed class LastKnownUserProfileProviderTests : IDisposable
         await _sut.GetAsync("42", Ct);
         _inner.GetAsync("42", Ct).ThrowsAsync(new HttpRequestException("down"));
 
-        (await _sut.GetAsync("42", Ct)).ShouldBe(Profile);
+        (await _sut.GetAsync("42", Ct)).ShouldBe(Profile with { IsStale = true });
+    }
+
+    [Fact]
+    public async Task Serves_the_last_known_profile_when_the_inner_provider_times_out()
+    {
+        _inner.GetAsync("42", Ct).Returns(Profile);
+        await _sut.GetAsync("42", Ct);
+        _inner.GetAsync("42", Ct).ThrowsAsync(new TaskCanceledException("timeout"));
+
+        (await _sut.GetAsync("42", Ct)).ShouldBe(Profile with { IsStale = true });
     }
 
     [Fact]

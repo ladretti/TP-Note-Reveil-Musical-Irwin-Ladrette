@@ -56,7 +56,6 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static void AddMusic(this IServiceCollection services)
     {
-        services.AddMemoryCache();
         services.AddRemoteMusicProvider<ITunesMusicProvider>(MusicProviderKind.ITunes, options => options.ITunes);
         services.AddRemoteMusicProvider<MusicBrainzMusicProvider>(MusicProviderKind.MusicBrainz, options => options.MusicBrainz);
         services.AddSingleton<LocalMusicProvider>();
