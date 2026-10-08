@@ -8,7 +8,7 @@ public sealed class UserProfileTests
         "42",
         new Dictionary<SongSlot, string> { [new SongSlot(DayOfWeek.Monday, Weather.Rain)] = "Riders on the Storm" },
         FallbackSong: "Wake Me Up",
-        ChannelType.Sms,
+        new ChannelType("Sms"),
         UserContact.None);
 
     [Fact]

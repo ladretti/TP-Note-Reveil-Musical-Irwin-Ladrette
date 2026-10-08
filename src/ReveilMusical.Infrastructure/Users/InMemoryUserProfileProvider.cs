@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using ReveilMusical.Domain;
 using ReveilMusical.Domain.Ports;
+using ReveilMusical.Infrastructure.Notifications;
 
 namespace ReveilMusical.Infrastructure.Users;
 
@@ -18,11 +19,14 @@ internal sealed class InMemoryUserProfileProvider : IUserProfileProvider
                 [new SongSlot(DayOfWeek.Saturday, Weather.Snow)] = "Let It Go",
             },
             "Wake Me Up",
-            ChannelType.Push,
-            new UserContact("alice@example.com", "+33600000042", "device-42")),
-        new("7", new Dictionary<SongSlot, string>(), "Good Morning", ChannelType.Sms, new UserContact(Phone: "+33600000007")),
-        new("13", new Dictionary<SongSlot, string>(), "Here Comes the Sun", ChannelType.Email, new UserContact(PushToken: "device-13")),
+            Channels.Push,
+            ContactOf((Channels.Email, "alice@example.com"), (Channels.Sms, "+33600000042"), (Channels.Push, "device-42"))),
+        new("7", new Dictionary<SongSlot, string>(), "Good Morning", Channels.Sms, ContactOf((Channels.Sms, "+33600000007"))),
+        new("13", new Dictionary<SongSlot, string>(), "Here Comes the Sun", Channels.Email, ContactOf((Channels.Push, "device-13"))),
     }.ToFrozenDictionary(profile => profile.UserId);
+
+    private static UserContact ContactOf(params (ChannelType Channel, string Address)[] addresses) =>
+        new(addresses.ToDictionary(entry => entry.Channel, entry => entry.Address));
 
     public Task<UserProfile?> GetAsync(string userId, CancellationToken cancellationToken) =>
         Task.FromResult(_profiles.GetValueOrDefault(userId));

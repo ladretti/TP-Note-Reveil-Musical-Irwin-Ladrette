@@ -26,10 +26,10 @@ public static class InfrastructureServiceCollectionExtensions
         var notificationSection = configuration.GetSection(NotificationOptions.SectionName);
         services.AddOptions<NotificationOptions>()
             .Bind(notificationSection)
-            .Configure(_ => RejectUnknownNames<ChannelType>(notificationSection.GetSection(nameof(NotificationOptions.FallbackOrder))))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<MusicOptions>, MusicOptionsValidator>();
         services.AddSingleton<IValidateOptions<NotificationOptions>, NotificationOptionsValidator>();
+        services.AddSingleton<IValidateOptions<NotificationOptions>, RegisteredChannelsValidator>();
 
         services.AddMemoryCache();
         services.AddSingleton<InMemoryUserProfileProvider>();

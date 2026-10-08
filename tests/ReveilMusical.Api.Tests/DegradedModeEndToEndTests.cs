@@ -19,7 +19,7 @@ public sealed class DegradedModeEndToEndTests
 
         using var response = await client.PostAsJsonAsync(
             new Uri("/wakeups", UriKind.Relative),
-            new { userId = "42", day = "Monday", weather = "PLUIE" },
+            new { userId = "42", day = "LUNDI", weather = "PLUIE" },
             TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);

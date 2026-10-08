@@ -5,11 +5,11 @@ namespace ReveilMusical.Infrastructure.Notifications;
 
 internal sealed class PushChannel(IPushService service) : INotificationChannel
 {
-    public ChannelType Type => ChannelType.Push;
+    public ChannelType Type => Channels.Push;
 
     public async Task<bool> TrySendAsync(WakeUpMessage message, CancellationToken cancellationToken)
     {
-        if (message.Contact.PushToken is not { } token)
+        if (message.Contact.AddressFor(Type) is not { } token)
         {
             return false;
         }

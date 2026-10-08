@@ -11,9 +11,9 @@ public sealed class FallbackNotifierTests
 {
     private static readonly WakeUpMessage Message = new("42", UserContact.None, "Réveil musical", "Debout !");
 
-    private readonly INotificationChannel _push = ChannelOf(ChannelType.Push);
-    private readonly INotificationChannel _sms = ChannelOf(ChannelType.Sms);
-    private readonly INotificationChannel _email = ChannelOf(ChannelType.Email);
+    private readonly INotificationChannel _push = ChannelOf(Channels.Push);
+    private readonly INotificationChannel _sms = ChannelOf(Channels.Sms);
+    private readonly INotificationChannel _email = ChannelOf(Channels.Email);
 
     private static INotificationChannel ChannelOf(ChannelType type)
     {
@@ -25,7 +25,7 @@ public sealed class FallbackNotifierTests
 
     private static FallbackNotifier CreateSut(params INotificationChannel[] channels) => new(
         channels,
-        Microsoft.Extensions.Options.Options.Create(new NotificationOptions { FallbackOrder = [ChannelType.Push, ChannelType.Sms, ChannelType.Email] }),
+        Microsoft.Extensions.Options.Options.Create(new NotificationOptions { FallbackOrder = ["Push", "Sms", "Email"] }),
         NullLogger<FallbackNotifier>.Instance);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -33,9 +33,9 @@ public sealed class FallbackNotifierTests
     [Fact]
     public async Task Uses_the_preferred_channel_first()
     {
-        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, ChannelType.Email, Ct);
+        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, Channels.Email, Ct);
 
-        result.ShouldBe(new NotificationResult(ChannelType.Email, UsedFallback: false));
+        result.ShouldBe(new NotificationResult(Channels.Email, UsedFallback: false));
         await _push.DidNotReceiveWithAnyArgs().TrySendAsync(default!, Ct);
     }
 
@@ -45,9 +45,9 @@ public sealed class FallbackNotifierTests
         _sms.TrySendAsync(Message, Arg.Any<CancellationToken>()).Returns(false);
         _push.TrySendAsync(Message, Arg.Any<CancellationToken>()).Returns(false);
 
-        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, ChannelType.Sms, Ct);
+        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, Channels.Sms, Ct);
 
-        result.ShouldBe(new NotificationResult(ChannelType.Email, UsedFallback: true));
+        result.ShouldBe(new NotificationResult(Channels.Email, UsedFallback: true));
         await _sms.Received(1).TrySendAsync(Message, Arg.Any<CancellationToken>());
     }
 
@@ -56,9 +56,9 @@ public sealed class FallbackNotifierTests
     {
         _push.TrySendAsync(Message, Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("push down"));
 
-        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, ChannelType.Push, Ct);
+        var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, Channels.Push, Ct);
 
-        result.ShouldBe(new NotificationResult(ChannelType.Sms, UsedFallback: true));
+        result.ShouldBe(new NotificationResult(Channels.Sms, UsedFallback: true));
     }
 
     [Fact]
@@ -66,15 +66,26 @@ public sealed class FallbackNotifierTests
     {
         var result = await CreateSut(_push, _sms, _email).NotifyAsync(Message, preferred: null, Ct);
 
-        result.ShouldBe(new NotificationResult(ChannelType.Push, UsedFallback: true));
+        result.ShouldBe(new NotificationResult(Channels.Push, UsedFallback: true));
     }
 
     [Fact]
     public async Task Skips_a_preferred_channel_that_is_not_registered()
     {
-        var result = await CreateSut(_sms).NotifyAsync(Message, ChannelType.Push, Ct);
+        var result = await CreateSut(_sms).NotifyAsync(Message, Channels.Push, Ct);
 
-        result.ShouldBe(new NotificationResult(ChannelType.Sms, UsedFallback: true));
+        result.ShouldBe(new NotificationResult(Channels.Sms, UsedFallback: true));
+    }
+
+    [Fact]
+    public async Task Accepts_a_new_channel_without_any_domain_change()
+    {
+        var whatsApp = ChannelOf(new ChannelType("WhatsApp"));
+
+        var result = await CreateSut(_push, whatsApp).NotifyAsync(Message, new ChannelType("whatsapp"), Ct);
+
+        result.ShouldBe(new NotificationResult(new ChannelType("WhatsApp"), UsedFallback: false));
+        await _push.DidNotReceiveWithAnyArgs().TrySendAsync(default!, Ct);
     }
 
     [Fact]
@@ -85,7 +96,7 @@ public sealed class FallbackNotifierTests
             channel.TrySendAsync(Message, Arg.Any<CancellationToken>()).Returns(false);
         }
 
-        (await CreateSut(_push, _sms, _email).NotifyAsync(Message, ChannelType.Push, Ct)).ShouldBe(NotificationResult.NotDelivered);
+        (await CreateSut(_push, _sms, _email).NotifyAsync(Message, Channels.Push, Ct)).ShouldBe(NotificationResult.NotDelivered);
     }
 
     [Fact]
@@ -95,6 +106,6 @@ public sealed class FallbackNotifierTests
         await cancellation.CancelAsync();
         _push.TrySendAsync(Message, Arg.Any<CancellationToken>()).ThrowsAsync(new OperationCanceledException(cancellation.Token));
 
-        await Should.ThrowAsync<OperationCanceledException>(() => CreateSut(_push).NotifyAsync(Message, ChannelType.Push, cancellation.Token));
+        await Should.ThrowAsync<OperationCanceledException>(() => CreateSut(_push).NotifyAsync(Message, Channels.Push, cancellation.Token));
     }
 }

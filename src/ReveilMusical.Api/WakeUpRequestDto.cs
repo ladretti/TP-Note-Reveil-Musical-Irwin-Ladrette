@@ -6,5 +6,5 @@ namespace ReveilMusical.Api;
 
 internal sealed record WakeUpRequestDto(
     string UserId,
-    [property: JsonConverter(typeof(StrictEnumConverter<DayOfWeek>))] DayOfWeek Day,
+    [property: JsonConverter(typeof(DayOfWeekJsonConverter))] DayOfWeek Day,
     [property: JsonConverter(typeof(WeatherJsonConverter))] Weather Weather);

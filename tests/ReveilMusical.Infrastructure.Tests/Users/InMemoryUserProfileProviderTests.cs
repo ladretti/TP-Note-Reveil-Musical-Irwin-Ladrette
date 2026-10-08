@@ -1,6 +1,8 @@
 using ReveilMusical.Domain;
 using ReveilMusical.Infrastructure.Users;
 
+using ReveilMusical.Infrastructure.Notifications;
+
 namespace ReveilMusical.Infrastructure.Tests.Users;
 
 public sealed class InMemoryUserProfileProviderTests
@@ -16,7 +18,7 @@ public sealed class InMemoryUserProfileProviderTests
 
         profile.ShouldNotBeNull();
         profile.SongFor(DayOfWeek.Monday, Weather.Rain).ShouldBe("Riders on the Storm");
-        profile.PreferredChannel.ShouldBe(ChannelType.Push);
+        profile.PreferredChannel.ShouldBe(Channels.Push);
     }
 
     [Fact]

@@ -7,13 +7,13 @@ Service qui réveille chaque utilisateur avec un morceau choisi selon le jour et
 ```bash
 dotnet run --project src/ReveilMusical.Api --urls http://localhost:5080
 curl -X POST http://localhost:5080/wakeups -H 'Content-Type: application/json' \
-     -d '{"userId":"42","day":"Monday","weather":"PLUIE"}'
+     -d '{"userId":"42","day":"LUNDI","weather":"PLUIE"}'
 ```
 
 | Code | Signification |
 |---|---|
 | 200 | Réveil envoyé ; `degraded` et `reasons` indiquent un éventuel mode dégradé |
-| 400 | Requête invalide (`weather` ∈ SOLEIL, PLUIE, NEIGE, NUAGEUX ; `day` ∈ Monday…Sunday) |
+| 400 | Requête invalide (`weather` ∈ SOLEIL, PLUIE, NEIGE, NUAGEUX ; `day` ∈ LUNDI…DIMANCHE ; insensible à la casse, les entiers sont refusés) |
 | 404 | Utilisateur inconnu |
 | 503 | Aucun canal n'a pu délivrer : l'ordonnanceur peut réessayer |
 
@@ -23,7 +23,7 @@ Utilisateurs de démonstration : `42` (grille jour×météo, push), `7` (morceau
 
 ```bash
 dotnet test
-scripts/coverage.sh        # 99,4 % des lignes (hors Program.cs)
+scripts/coverage.sh        # 99,5 % des lignes (hors Program.cs)
 scripts/audit-dependencies.sh
 ```
 
@@ -49,7 +49,7 @@ Les références de projets rendent l'isolation vérifiable par le compilateur ;
 | Exigence | Réponse |
 |---|---|
 | Changer de fournisseur musical rapidement | `Music:Providers` dans `appsettings.json` : ordre et présence des fournisseurs sans toucher au code. Nouveau fournisseur = un adapter (sous-classe de `HttpMusicProviderBase<T>`), une valeur `MusicProviderKind`, une propriété `RemoteProviderOptions` + son bloc `appsettings`, une ligne de DI ; l'ordre se règle ensuite dans `Music:Providers`. |
-| Nouveaux canaux de notification | Une valeur `ChannelType` (vocabulaire métier : le canal préféré de l'utilisateur), un champ de `UserContact` si une nouvelle coordonnée est nécessaire, un adapter `INotificationChannel`, une ligne de DI ; optionnellement sa place dans `Notifications:FallbackOrder`. `UserContact.PushToken` est la coordonnée de contact de l'utilisateur, comme l'e-mail ou le téléphone : aucun format propre à un fournisseur n'y est porté. |
+| Nouveaux canaux de notification | Un adapter `INotificationChannel` (qui déclare son nom, ex. `"WhatsApp"`), une ligne de DI et sa place dans `Notifications:FallbackOrder` : **aucune modification du Domain**. Le métier ne manipule qu'un `ChannelType` opaque (un nom) et un `UserContact` qui associe à chaque canal une adresse ; c'est l'adapter qui sait quoi faire de son adresse. Un nom de canal inconnu dans la configuration fait échouer le démarrage. |
 | Aucun silence | Repli musical jusqu'au catalogue local (infaillible), repli de canal, service de profils indisponible → dernier profil connu (mis en cache à chaque consultation réussie, conservé 7 jours, propre à chaque instance) et signalé `StaleProfileUsed` ; si le profil n'a jamais été vu, le réveil choisit tout de même un morceau dans le catalogue local mais aucun contact n'est connu : l'API répond alors 503 explicitement pour que l'ordonnanceur réessaie, jamais un 200 silencieux. |
 | Quotas des API | Cache (24 h) devant un limiteur par fournisseur (iTunes 20/min, MusicBrainz 1/s) ; quota atteint → fournisseur suivant, sans attendre. |
 | Aucun composant non vérifié | Tableau ci-dessous, `scripts/audit-dependencies.sh`, `NuGetAuditMode=all` + `TreatWarningsAsErrors` : une vulnérabilité connue casse le build. |
@@ -132,4 +132,4 @@ Aucun paquet de ces 10 n'est référencé par les projets de `src/` (vérifié a
 | API | Conditions respectées |
 |---|---|
 | iTunes Search API | Gratuite, sans clé, ≈ 20 requêtes/min : limiteur 20/min + cache 24 h. Le lien de retour vers Apple (`trackViewUrl`) est conservé sous forme neutre `ListenUrl` (attendu par les conditions d'utilisation). |
-| MusicBrainz | `User-Agent` identifiable obligatoire (`Music:MusicBrainz:UserAgent`, validé au démarrage), 1 requête/s en moyenne : limiteur 1/s. Les données utilisées (titre, artiste) font partie des données de base, publiées en CC0. |
+| MusicBrainz | `User-Agent` identifiable obligatoire (`Music:MusicBrainz:UserAgent`, validé au démarrage ; le contact donné est l'URL du dépôt), 1 requête/s en moyenne : limiteur 1/s. Les données utilisées (titre, artiste) font partie des données de base, publiées en CC0. |

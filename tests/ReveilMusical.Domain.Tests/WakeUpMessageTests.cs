@@ -4,7 +4,7 @@ namespace ReveilMusical.Domain.Tests;
 
 public sealed class WakeUpMessageTests
 {
-    private static readonly UserContact Contact = new(Phone: "+33600000000");
+    private static readonly UserContact Contact = new(new Dictionary<ChannelType, string> { [new ChannelType("Sms")] = "+33600000000" });
 
     [Theory]
     [InlineData(DayOfWeek.Monday, Weather.Rain, "Bon lundi pluvieux !")]

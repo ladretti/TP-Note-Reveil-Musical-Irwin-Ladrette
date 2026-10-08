@@ -9,6 +9,8 @@ using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
 
+using ReveilMusical.Infrastructure.Notifications;
+
 namespace ReveilMusical.Infrastructure.Tests;
 
 public sealed class DependencyInjectionTests : IDisposable
@@ -114,7 +116,7 @@ public sealed class DependencyInjectionTests : IDisposable
 
         var result = await provider.GetRequiredService<IWakeUpNotifier>().NotifyAsync(message, profile.PreferredChannel, Ct);
 
-        result.ShouldBe(new NotificationResult(ChannelType.Push, UsedFallback: false));
+        result.ShouldBe(new NotificationResult(Channels.Push, UsedFallback: false));
     }
 
     [Fact]
@@ -152,12 +154,12 @@ public sealed class DependencyInjectionTests : IDisposable
     }
 
     [Fact]
-    public void Unknown_channel_name_fails_options_binding()
+    public void Unregistered_channel_name_fails_options_validation()
     {
         var settings = ValidSettings();
         settings["Notifications:FallbackOrder:1"] = "Emial";
         using var provider = Build(settings);
 
-        Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<IOptions<NotificationOptions>>().Value);
+        Should.Throw<OptionsValidationException>(() => provider.GetRequiredService<IOptions<NotificationOptions>>().Value);
     }
 }

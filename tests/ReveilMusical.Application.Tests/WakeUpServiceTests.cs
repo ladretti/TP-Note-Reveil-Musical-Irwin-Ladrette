@@ -8,12 +8,12 @@ namespace ReveilMusical.Application.Tests;
 public sealed class WakeUpServiceTests
 {
     private static readonly Track Song = new("Riders on the Storm", "The Doors");
-    private static readonly UserContact AliceContact = new(Phone: "+33600000001");
+    private static readonly UserContact AliceContact = new(new Dictionary<ChannelType, string> { [new ChannelType("Sms")] = "+33600000001" });
     private static readonly UserProfile Alice = new(
         "42",
         new Dictionary<SongSlot, string> { [new SongSlot(DayOfWeek.Monday, Weather.Rain)] = "Riders on the Storm" },
         "Wake Me Up",
-        ChannelType.Sms,
+        new ChannelType("Sms"),
         AliceContact);
     private static readonly WakeUpRequest MondayRain = new("42", DayOfWeek.Monday, Weather.Rain);
 
@@ -28,7 +28,7 @@ public sealed class WakeUpServiceTests
         _profiles.GetAsync("42", Arg.Any<CancellationToken>()).Returns(Alice);
         _tracks.ResolveAsync(Arg.Any<TrackQuery>(), Arg.Any<CancellationToken>()).Returns(new ResolvedTrack(Song, IsFallback: false));
         _notifier.NotifyAsync(Arg.Any<WakeUpMessage>(), Arg.Any<ChannelType?>(), Arg.Any<CancellationToken>())
-            .Returns(new NotificationResult(ChannelType.Sms, UsedFallback: false));
+            .Returns(new NotificationResult(new ChannelType("Sms"), UsedFallback: false));
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -38,12 +38,12 @@ public sealed class WakeUpServiceTests
     {
         var result = await _sut.WakeUpAsync(MondayRain, Ct);
 
-        result.ShouldBe(new WakeUpResult(WakeUpStatus.Delivered, Song, ChannelType.Sms, result.Reasons));
+        result.ShouldBe(new WakeUpResult(WakeUpStatus.Delivered, Song, new ChannelType("Sms"), result.Reasons));
         result.IsDegraded.ShouldBeFalse();
         await _tracks.Received(1).ResolveAsync(Arg.Is(new TrackQuery("Riders on the Storm", Weather.Rain)), Arg.Any<CancellationToken>());
         await _notifier.Received(1).NotifyAsync(
             Arg.Is<WakeUpMessage>(m => m.UserId == "42" && m.Contact == AliceContact && m.Body.Contains("Riders on the Storm", StringComparison.Ordinal)),
-            ChannelType.Sms,
+            new ChannelType("Sms"),
             Arg.Any<CancellationToken>());
     }
 
@@ -94,11 +94,11 @@ public sealed class WakeUpServiceTests
     public async Task Flags_channel_fallback()
     {
         _notifier.NotifyAsync(Arg.Any<WakeUpMessage>(), Arg.Any<ChannelType?>(), Arg.Any<CancellationToken>())
-            .Returns(new NotificationResult(ChannelType.Email, UsedFallback: true));
+            .Returns(new NotificationResult(new ChannelType("Email"), UsedFallback: true));
 
         var result = await _sut.WakeUpAsync(MondayRain, Ct);
 
-        result.DeliveredVia.ShouldBe(ChannelType.Email);
+        result.DeliveredVia.ShouldBe(new ChannelType("Email"));
         result.Reasons.ShouldBe([DegradationReason.ChannelFallbackUsed]);
     }
 

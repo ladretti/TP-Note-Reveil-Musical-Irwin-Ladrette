@@ -6,13 +6,15 @@ using ReveilMusical.Domain;
 using ReveilMusical.Domain.Ports;
 using ReveilMusical.Infrastructure.Users;
 
+using ReveilMusical.Infrastructure.Notifications;
+
 namespace ReveilMusical.Infrastructure.Tests.Users;
 
 public sealed class LastKnownUserProfileProviderTests : IDisposable
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static readonly UserProfile Profile = new("42", new Dictionary<SongSlot, string>(), "Wake Me Up", ChannelType.Push, new UserContact(PushToken: "device-42"));
+    private static readonly UserProfile Profile = new("42", new Dictionary<SongSlot, string>(), "Wake Me Up", Channels.Push, new UserContact(new Dictionary<ChannelType, string> { [Channels.Push] = "device-42" }));
 
     private readonly IUserProfileProvider _inner = Substitute.For<IUserProfileProvider>();
     private readonly MemoryCache _cache = new(new MemoryCacheOptions());

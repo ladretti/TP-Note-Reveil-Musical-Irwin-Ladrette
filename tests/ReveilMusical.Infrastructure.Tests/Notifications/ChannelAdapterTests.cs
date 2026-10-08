@@ -6,7 +6,7 @@ namespace ReveilMusical.Infrastructure.Tests.Notifications;
 
 public sealed class ChannelAdapterTests
 {
-    private static readonly UserContact FullContact = new("alice@example.com", "+33600000001", "device-alice");
+    private static readonly UserContact FullContact = new(new Dictionary<ChannelType, string> { [Channels.Email] = "alice@example.com", [Channels.Sms] = "+33600000001", [Channels.Push] = "device-alice" });
 
     private static WakeUpMessage MessageFor(UserContact contact) => new("42", contact, "Réveil musical", "Bon lundi <pluvieux> !");
 
@@ -73,8 +73,8 @@ public sealed class ChannelAdapterTests
     [Fact]
     public void Channels_declare_their_type()
     {
-        new EmailChannel(Substitute.For<IEmailClient>()).Type.ShouldBe(ChannelType.Email);
-        new SmsChannel(Substitute.For<ISmsGateway>()).Type.ShouldBe(ChannelType.Sms);
-        new PushChannel(Substitute.For<IPushService>()).Type.ShouldBe(ChannelType.Push);
+        new EmailChannel(Substitute.For<IEmailClient>()).Type.ShouldBe(Channels.Email);
+        new SmsChannel(Substitute.For<ISmsGateway>()).Type.ShouldBe(Channels.Sms);
+        new PushChannel(Substitute.For<IPushService>()).Type.ShouldBe(Channels.Push);
     }
 }

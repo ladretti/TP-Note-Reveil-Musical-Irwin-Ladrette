@@ -10,7 +10,7 @@ namespace ReveilMusical.Api.Tests;
 public sealed class WakeUpEndpointTests : IDisposable
 {
     private static readonly UserProfile Alice = new(
-        "42", new Dictionary<SongSlot, string>(), "Imagine", ChannelType.Sms, new UserContact(Phone: "+33600000042"));
+        "42", new Dictionary<SongSlot, string>(), "Imagine", new ChannelType("Sms"), new UserContact(new Dictionary<ChannelType, string> { [new ChannelType("Sms")] = "+33600000042" }));
 
     private readonly ApiFactory _factory = new();
     private readonly HttpClient _client;
@@ -22,7 +22,7 @@ public sealed class WakeUpEndpointTests : IDisposable
         _factory.Tracks.ResolveAsync(Arg.Any<TrackQuery>(), Arg.Any<CancellationToken>())
             .Returns(new ResolvedTrack(new Track("Imagine", "John Lennon", new Uri("https://music.example/imagine")), IsFallback: false));
         _factory.Notifier.NotifyAsync(Arg.Any<WakeUpMessage>(), Arg.Any<ChannelType?>(), Arg.Any<CancellationToken>())
-            .Returns(new NotificationResult(ChannelType.Sms, UsedFallback: false));
+            .Returns(new NotificationResult(new ChannelType("Sms"), UsedFallback: false));
     }
 
     public void Dispose()
@@ -42,7 +42,7 @@ public sealed class WakeUpEndpointTests : IDisposable
     [Fact]
     public async Task Returns_200_with_the_track_and_the_channel_used()
     {
-        using var response = await PostAsync("""{ "userId": "42", "day": "Monday", "weather": "PLUIE" }""");
+        using var response = await PostAsync("""{ "userId": "42", "day": "LUNDI", "weather": "PLUIE" }""");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await ReadJsonAsync(response);
@@ -56,15 +56,16 @@ public sealed class WakeUpEndpointTests : IDisposable
     }
 
     [Theory]
-    [InlineData("""{ "userId": "42", "day": "Monday", "weather": 2 }""")]
+    [InlineData("""{ "userId": "42", "day": "LUNDI", "weather": 2 }""")]
     [InlineData("""{ "userId": "42", "day": 1, "weather": "PLUIE" }""")]
     [InlineData("""{ "userId": "42", "day": "Funday", "weather": "PLUIE" }""")]
-    [InlineData("""{ "userId": "42", "day": "Monday", "weather": "RAIN" }""")]
-    [InlineData("""{ "day": "Monday", "weather": "PLUIE" }""")]
-    [InlineData("""{ "userId": null, "day": "Monday", "weather": "PLUIE" }""")]
-    [InlineData("""{ "userId": "   ", "day": "Monday", "weather": "PLUIE" }""")]
+    [InlineData("""{ "userId": "42", "day": "Monday", "weather": "PLUIE" }""")]
+    [InlineData("""{ "userId": "42", "day": "LUNDI", "weather": "RAIN" }""")]
+    [InlineData("""{ "day": "LUNDI", "weather": "PLUIE" }""")]
+    [InlineData("""{ "userId": null, "day": "LUNDI", "weather": "PLUIE" }""")]
+    [InlineData("""{ "userId": "   ", "day": "LUNDI", "weather": "PLUIE" }""")]
     [InlineData("""{ "userId": "42", "weather": "PLUIE" }""")]
-    [InlineData("""{ "userId": "42", "day": "Monday" }""")]
+    [InlineData("""{ "userId": "42", "day": "LUNDI" }""")]
     [InlineData("not json")]
     public async Task Invalid_payloads_return_400(string json)
     {
@@ -78,7 +79,7 @@ public sealed class WakeUpEndpointTests : IDisposable
     [Fact]
     public async Task Returns_404_for_unknown_users()
     {
-        using var response = await PostAsync("""{ "userId": "unknown", "day": "Monday", "weather": "SOLEIL" }""");
+        using var response = await PostAsync("""{ "userId": "unknown", "day": "LUNDI", "weather": "SOLEIL" }""");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");
@@ -90,7 +91,7 @@ public sealed class WakeUpEndpointTests : IDisposable
         _factory.Notifier.NotifyAsync(Arg.Any<WakeUpMessage>(), Arg.Any<ChannelType?>(), Arg.Any<CancellationToken>())
             .Returns(NotificationResult.NotDelivered);
 
-        using var response = await PostAsync("""{ "userId": "42", "day": "Monday", "weather": "NEIGE" }""");
+        using var response = await PostAsync("""{ "userId": "42", "day": "LUNDI", "weather": "NEIGE" }""");
 
         response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
         var body = await ReadJsonAsync(response);
@@ -104,7 +105,7 @@ public sealed class WakeUpEndpointTests : IDisposable
         _factory.Notifier.NotifyAsync(Arg.Any<WakeUpMessage>(), Arg.Any<ChannelType?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("secret internal detail"));
 
-        using var response = await PostAsync("""{ "userId": "42", "day": "Monday", "weather": "NUAGEUX" }""");
+        using var response = await PostAsync("""{ "userId": "42", "day": "LUNDI", "weather": "NUAGEUX" }""");
 
         response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");

@@ -26,8 +26,11 @@ internal sealed class FallbackNotifier(
         return NotificationResult.NotDelivered;
     }
 
-    private IEnumerable<ChannelType> AttemptOrder(ChannelType? preferred) =>
-        (preferred is { } first ? options.Value.FallbackOrder.Prepend(first) : options.Value.FallbackOrder).Distinct();
+    private IEnumerable<ChannelType> AttemptOrder(ChannelType? preferred)
+    {
+        var configured = options.Value.FallbackOrder.Select(name => new ChannelType(name));
+        return (preferred is { } first ? configured.Prepend(first) : configured).Distinct();
+    }
 
     private async Task<bool> TrySendAsync(ChannelType type, WakeUpMessage message, CancellationToken cancellationToken)
     {

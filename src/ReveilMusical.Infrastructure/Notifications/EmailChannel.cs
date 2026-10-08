@@ -6,11 +6,11 @@ namespace ReveilMusical.Infrastructure.Notifications;
 
 internal sealed class EmailChannel(IEmailClient client) : INotificationChannel
 {
-    public ChannelType Type => ChannelType.Email;
+    public ChannelType Type => Channels.Email;
 
     public async Task<bool> TrySendAsync(WakeUpMessage message, CancellationToken cancellationToken)
     {
-        if (message.Contact.Email is not { } address)
+        if (message.Contact.AddressFor(Type) is not { } address)
         {
             return false;
         }
