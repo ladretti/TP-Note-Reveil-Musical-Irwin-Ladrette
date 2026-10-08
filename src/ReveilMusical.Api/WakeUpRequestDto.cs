@@ -1,0 +1,10 @@
+using System.Text.Json.Serialization;
+using ReveilMusical.Api.Json;
+using ReveilMusical.Domain;
+
+namespace ReveilMusical.Api;
+
+internal sealed record WakeUpRequestDto(
+    string UserId,
+    [property: JsonConverter(typeof(StrictEnumConverter<DayOfWeek>))] DayOfWeek Day,
+    [property: JsonConverter(typeof(WeatherJsonConverter))] Weather Weather);
