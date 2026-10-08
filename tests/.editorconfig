@@ -1,0 +1,7 @@
+[*.cs]
+# Noms de tests lisibles en phrase : Method_scenario_expected.
+dotnet_diagnostic.CA1707.severity = none
+# Les projets de tests xUnit v3 sont des exécutables : leurs classes publiques sont voulues.
+dotnet_diagnostic.CA1515.severity = none
+# Les tests possèdent la durée de vie de leurs objets jetables.
+dotnet_diagnostic.CA2000.severity = none
